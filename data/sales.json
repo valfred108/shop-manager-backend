@@ -1,0 +1,20 @@
+[
+  {
+    "id": "1791207854704",
+    "date": "2026-10-05",
+    "product": "Denim Jacket",
+    "category": "Clothes",
+    "quantity": 10,
+    "amount": 550000,
+    "customer": "Alfred Victor"
+  },
+  {
+    "id": "1791207907512",
+    "date": "2026-10-05",
+    "product": "Retro Jerset",
+    "category": "Clothes",
+    "quantity": 1,
+    "amount": 25000,
+    "customer": "Alfred Victor"
+  }
+]

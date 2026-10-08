@@ -1,0 +1,23 @@
+[
+  {
+    "id": 1791194890588,
+    "name": "Denim Jeans",
+    "category": "Clothes",
+    "price": 25000,
+    "stock": 96
+  },
+  {
+    "id": 1791194915725,
+    "name": "Nivea for Men",
+    "category": "Cosmetics",
+    "price": 13500,
+    "stock": 10
+  },
+  {
+    "id": 1791196164215,
+    "name": "Retro Jersey",
+    "category": "Clothes",
+    "price": 25000,
+    "stock": 10
+  }
+]

@@ -1,0 +1,24 @@
+[
+  {
+    "id": "alfred_victor",
+    "name": "Alfred Victor",
+    "email": "alfredyvictor281@gmail.com",
+    "phone": "0783042785",
+    "joined": "05/10/2026",
+    "lastOrder": "2026-10-05",
+    "totalSpent": 575000,
+    "total": 575000,
+    "orders": 2
+  },
+  {
+    "id": "aisha_juma",
+    "name": "Aisha Juma",
+    "email": "alfredyvictor281@gmail.com",
+    "phone": "0783042785",
+    "joined": "05/10/2026",
+    "lastOrder": "05/10/2026",
+    "totalSpent": 0,
+    "total": 0,
+    "orders": 0
+  }
+]

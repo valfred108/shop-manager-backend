@@ -1,0 +1,30 @@
+[
+  {
+    "id": 1791204647328,
+    "name": "Nivea for men",
+    "category": "Cosmetics",
+    "price": 13500,
+    "stock": 72
+  },
+  {
+    "id": 1791204707395,
+    "name": "Denim Jacket",
+    "category": "Clothes",
+    "price": 55000,
+    "stock": 12
+  },
+  {
+    "id": 1791204739340,
+    "name": "Retro Jersey",
+    "category": "Clothes",
+    "price": 25000,
+    "stock": 0
+  },
+  {
+    "id": 1791204796148,
+    "name": "Gucci Tshirt",
+    "category": "Clothes",
+    "price": 20000,
+    "stock": 3
+  }
+]
