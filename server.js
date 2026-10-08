@@ -3,24 +3,20 @@ import cors from 'cors';
 import mysql from 'mysql2/promise';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
+dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const SECRET = "shop_secret_2026";
+const SECRET = process.env.JWT_SECRET || "shop_secret_2026";
 
-// ===== CONNECT TO YOUR WORKBENCH =====
-const db = await mysql.createPool({
-  host: '127.0.0.1',
-  user: 'root',
-  password: 'Alvi@1234',
-  database: 'shop_manager',
-  port: 3306
-});
-console.log('✅ Workbench Connected! shop_manager is READY!');
+// ===== CONNECT TO RAILWAY MYSQL =====
+const db = mysql.createPool(process.env.MYSQL_URL || process.env.DATABASE_URL);
+console.log('✅ MySQL Pool Created! Using MYSQL_URL');
 
-// ======== CREATE USERS TABLE IF NOT EXISTS ========
+// ======== CREATE ALL TABLES ========
 await db.query(`
   CREATE TABLE IF NOT EXISTS users (
     id VARCHAR(50) PRIMARY KEY,
@@ -30,27 +26,48 @@ await db.query(`
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )
 `);
-console.log('✅ Users table ready!');
+await db.query(`
+  CREATE TABLE IF NOT EXISTS products (
+    id VARCHAR(50) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    price DECIMAL(10,2) DEFAULT 0,
+    stock INT DEFAULT 0,
+    category VARCHAR(50) DEFAULT 'general'
+  )
+`);
+await db.query(`
+  CREATE TABLE IF NOT EXISTS customers (
+    id VARCHAR(100) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) DEFAULT '',
+    phone VARCHAR(50) DEFAULT '',
+    joined DATE
+  )
+`);
+await db.query(`
+  CREATE TABLE IF NOT EXISTS sales (
+    id VARCHAR(50) PRIMARY KEY,
+    productId VARCHAR(50),
+    quantity INT DEFAULT 1,
+    customer VARCHAR(100),
+    amount DECIMAL(10,2) DEFAULT 0,
+    date DATE
+  )
+`);
+console.log('✅ All tables ready!');
 
 // ================= REAL AUTH =================
 app.post('/api/register', async (req, res) => {
   try {
     const { name, email, password } = req.body;
     if (!name ||!email ||!password) return res.status(400).json({ error: "All fields required" });
-
     const [exists] = await db.query('SELECT id FROM users WHERE email=?', [email]);
     if (exists.length > 0) return res.status(400).json({ error: "Email already exists" });
-
     const hashed = await bcrypt.hash(password, 10);
     const id = Date.now().toString();
-
-    await db.query('INSERT INTO users (id, name, email, password) VALUES (?,?,?,?)',
-      [id, name, email, hashed]);
-
+    await db.query('INSERT INTO users (id, name, email, password) VALUES (?,?,?,?)', [id, name, email, hashed]);
     res.json({ message: "Registered successfully!" });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/login', async (req, res) => {
@@ -58,43 +75,28 @@ app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
     const [rows] = await db.query('SELECT * FROM users WHERE email=?', [email]);
     if (rows.length === 0) return res.status(400).json({ error: "User not found" });
-
     const user = rows[0];
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(400).json({ error: "Wrong password" });
-
     const token = jwt.sign({ id: user.id, email: user.email }, SECRET, { expiresIn: '1d' });
     res.json({ message: "Login success", token, user: { id: user.id, name: user.name, email: user.email } });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ================= PRODUCTS =================
-app.get('/api/products', async (req,res)=>{
-  const [rows] = await db.query('SELECT * FROM products');
-  res.json(rows);
-});
-
+app.get('/api/products', async (req,res)=>{ const [rows] = await db.query('SELECT * FROM products'); res.json(rows); });
 app.post('/api/products', async (req,res)=>{
   const id = Date.now().toString();
   const {name, price, stock, category} = req.body;
-  await db.query('INSERT INTO products (id,name,price,stock,category) VALUES (?,?,?,?,?)',
-    [id, name, price, Number(stock||0), category||'general']);
+  await db.query('INSERT INTO products (id,name,price,stock,category) VALUES (?,?,?,?,?)', [id, name, price, Number(stock||0), category||'general']);
   res.json({id, name});
 });
-
 app.put('/api/products/:id', async (req,res)=>{
   const {name, price, stock, category} = req.body;
-  await db.query('UPDATE products SET name=?, price=?, stock=?, category=? WHERE id=?',
-    [name, price, stock, category, req.params.id]);
+  await db.query('UPDATE products SET name=?, price=?, stock=?, category=? WHERE id=?', [name, price, stock, category, req.params.id]);
   res.json({success:true});
 });
-
-app.delete('/api/products/:id', async (req,res)=>{
-  await db.query('DELETE FROM products WHERE id=?', [req.params.id]);
-  res.json({success:true});
-});
+app.delete('/api/products/:id', async (req,res)=>{ await db.query('DELETE FROM products WHERE id=?', [req.params.id]); res.json({success:true}); });
 
 // ================= CUSTOMERS =================
 app.get('/api/customers', async (req,res)=>{
@@ -116,38 +118,26 @@ app.get('/api/customers', async (req,res)=>{
   });
   res.json(result);
 });
-
 app.post('/api/customers', async (req,res)=>{
   const id = req.body.name.toLowerCase().replace(/\s+/g,'_');
   const {name,email,phone} = req.body;
-  await db.query('INSERT INTO customers (id,name,email,phone,joined) VALUES (?,?,?,?,CURDATE())',
-    [id, name, email||'', phone||'']);
+  await db.query('INSERT INTO customers (id,name,email,phone,joined) VALUES (?,?,?,?,CURDATE())', [id, name, email||'', phone||'']);
   res.json({id, name});
 });
-
 app.put('/api/customers/:id', async (req,res)=>{
   const [old] = await db.query('SELECT name FROM customers WHERE id=?', [req.params.id]);
   if(old.length===0) return res.status(404).json({error:'Not found, reload page'});
   const oldName = old[0].name;
   const newName = req.body.name.trim();
   const newId = newName.toLowerCase().replace(/\s+/g,'_');
-  await db.query('UPDATE customers SET id=?, name=?, email=?, phone=? WHERE id=?',
-    [newId, newName, req.body.email, req.body.phone, req.params.id]);
+  await db.query('UPDATE customers SET id=?, name=?, email=?, phone=? WHERE id=?', [newId, newName, req.body.email, req.body.phone, req.params.id]);
   await db.query('UPDATE sales SET customer=? WHERE customer=?', [newName, oldName]);
   res.json({id:newId, name:newName});
 });
-
-app.delete('/api/customers/:id', async (req,res)=>{
-  await db.query('DELETE FROM customers WHERE id=?', [req.params.id]);
-  res.json({success:true});
-});
+app.delete('/api/customers/:id', async (req,res)=>{ await db.query('DELETE FROM customers WHERE id=?', [req.params.id]); res.json({success:true}); });
 
 // ================= SALES =================
-app.get('/api/sales', async (req,res)=>{
-  const [rows] = await db.query('SELECT * FROM sales ORDER BY date DESC');
-  res.json(rows);
-});
-
+app.get('/api/sales', async (req,res)=>{ const [rows] = await db.query('SELECT * FROM sales ORDER BY date DESC'); res.json(rows); });
 app.post('/api/sales', async (req,res)=>{
   const {productId, quantity, customer, amount} = req.body;
   const qty = Number(quantity||1);
@@ -161,22 +151,15 @@ app.post('/api/sales', async (req,res)=>{
   const id = Date.now().toString();
   const today = new Date().toISOString().split('T')[0];
   const custName = customer||'Walk-in Customer';
-  await db.query('INSERT INTO sales (id,productId,quantity,customer,amount,date) VALUES (?,?,?,?,?,?)',
-    [id, productId, qty, custName, Number(amount||0), today]);
+  await db.query('INSERT INTO sales (id,productId,quantity,customer,amount,date) VALUES (?,?,?,?,?,?)', [id, productId, qty, custName, Number(amount||0), today]);
   if(custName.toLowerCase()!=='walk-in customer'){
     const cid = custName.toLowerCase().replace(/\s+/g,'_');
     const [ex] = await db.query('SELECT id FROM customers WHERE LOWER(name)=LOWER(?)', [custName]);
-    if(ex.length===0){
-      await db.query('INSERT INTO customers (id,name,joined) VALUES (?,?,?)', [cid, custName, today]);
-    }
+    if(ex.length===0){ await db.query('INSERT INTO customers (id,name,joined) VALUES (?,?,?)', [cid, custName, today]); }
   }
   res.json({id});
 });
-
-app.delete('/api/sales/:id', async (req,res)=>{
-  await db.query('DELETE FROM sales WHERE id=?', [req.params.id]);
-  res.json({success:true});
-});
+app.delete('/api/sales/:id', async (req,res)=>{ await db.query('DELETE FROM sales WHERE id=?', [req.params.id]); res.json({success:true}); });
 
 // ================= DASHBOARD =================
 app.get('/api/dashboard', async (req,res)=>{
@@ -185,14 +168,8 @@ app.get('/api/dashboard', async (req,res)=>{
   const [c] = await db.query('SELECT COUNT(*) as totalCustomers FROM customers');
   const [l] = await db.query('SELECT COUNT(*) as lowStock FROM products WHERE stock <=5');
   const [recent] = await db.query('SELECT * FROM sales ORDER BY date DESC LIMIT 5');
-  res.json({
-    totalRevenue: s[0].totalRevenue||0,
-    totalSales: s[0].totalSales||0,
-    totalProducts: p[0].totalProducts||0,
-    totalCustomers: c[0].totalCustomers||0,
-    lowStock: l[0].lowStock||0,
-    recentSales: recent
-  });
+  res.json({ totalRevenue: s[0].totalRevenue||0, totalSales: s[0].totalSales||0, totalProducts: p[0].totalProducts||0, totalCustomers: c[0].totalCustomers||0, lowStock: l[0].lowStock||0, recentSales: recent });
 });
 
-app.listen(5000, ()=> console.log('🚀 Backend running on 5000 - WORKBENCH CONNECTED + REAL AUTH!'));
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, ()=> console.log(`🚀 Backend running on ${PORT} - RAILWAY CONNECTED!`));
